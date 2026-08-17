@@ -20,7 +20,9 @@ public sealed class AppSettings
 
     public HoldToShowMouseButton HoldToShowMouseButton { get; set; } = HoldToShowMouseButton.RightButton;
 
-    public string ReticleColorHex { get; set; } = "#FF4B4B";
+    public string ReticleColorHex { get; set; } = "#FFFFFF";
+
+    public string ReticleOutlineColorHex { get; set; } = "#000000";
 
     public int ReticleOpacity { get; set; } = 220;
 
@@ -29,6 +31,8 @@ public sealed class AppSettings
     public int ReticleGap { get; set; } = 8;
 
     public int ReticleThickness { get; set; } = 3;
+
+    public decimal ReticleScale { get; set; } = 2.0m;
 
     public bool ShowCenterDot { get; set; } = true;
 
@@ -47,10 +51,12 @@ public sealed class AppSettings
             HoldToShowEnabled = HoldToShowEnabled,
             HoldToShowMouseButton = HoldToShowMouseButton,
             ReticleColorHex = ReticleColorHex,
+            ReticleOutlineColorHex = ReticleOutlineColorHex,
             ReticleOpacity = ReticleOpacity,
             ReticleLength = ReticleLength,
             ReticleGap = ReticleGap,
             ReticleThickness = ReticleThickness,
+            ReticleScale = ReticleScale,
             ShowCenterDot = ShowCenterDot,
             CenterDotSize = CenterDotSize
         };
@@ -80,6 +86,7 @@ public sealed class AppSettings
         ReticleLength = Math.Clamp(ReticleLength, 4, 120);
         ReticleGap = Math.Clamp(ReticleGap, 0, 60);
         ReticleThickness = Math.Clamp(ReticleThickness, 1, 12);
+        ReticleScale = Math.Clamp(ReticleScale, 0.5m, 5.0m);
         ReticleOpacity = Math.Clamp(ReticleOpacity, 20, 255);
         CenterDotSize = Math.Clamp(CenterDotSize, 1, 20);
         HoldToShowMouseButton = Enum.IsDefined(HoldToShowMouseButton)
@@ -92,14 +99,28 @@ public sealed class AppSettings
         }
         catch
         {
-            ReticleColorHex = "#FF4B4B";
+            ReticleColorHex = "#FFFFFF";
+        }
+
+        try
+        {
+            _ = ColorTranslator.FromHtml(ReticleOutlineColorHex);
+        }
+        catch
+        {
+            ReticleOutlineColorHex = "#000000";
         }
     }
 
     public Color GetReticleColor()
     {
         Normalize();
-        var baseColor = ColorTranslator.FromHtml(ReticleColorHex);
-        return Color.FromArgb(ReticleOpacity, baseColor);
+        return ColorTranslator.FromHtml(ReticleColorHex);
+    }
+
+    public Color GetReticleOutlineColor()
+    {
+        Normalize();
+        return ColorTranslator.FromHtml(ReticleOutlineColorHex);
     }
 }

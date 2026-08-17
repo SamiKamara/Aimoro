@@ -185,25 +185,35 @@ public sealed class AimoroApplicationContext : ApplicationContext
 
         _hotkeyManager.ClearBindings();
         _activeSettingsForm = new SettingsForm(_settings);
+        _activeSettingsForm.SettingsChanged += HandleSettingsChanged;
 
         try
         {
-            if (_activeSettingsForm.ShowDialog() == DialogResult.OK)
-            {
-                _settings = _activeSettingsForm.ResultSettings.Clone();
-                _holdTriggerPressed = IsConfiguredHoldButtonPressed();
-                _overlaySettingsDirty = true;
-                PersistSettings();
-                RebuildMonitorMenu();
-                RefreshTargetScreen(force: true);
-            }
+            _activeSettingsForm.ShowDialog();
         }
         finally
         {
+            _activeSettingsForm.SettingsChanged -= HandleSettingsChanged;
             _activeSettingsForm.Dispose();
             _activeSettingsForm = null;
             RegisterHotkeys();
         }
+    }
+
+    private void HandleSettingsChanged(object? sender, EventArgs e)
+    {
+        if (sender is not SettingsForm settingsForm)
+        {
+            return;
+        }
+
+        _settings = settingsForm.ResultSettings.Clone();
+        _holdTriggerPressed = IsConfiguredHoldButtonPressed();
+        _overlaySettingsDirty = true;
+        PersistSettings();
+        RebuildMonitorMenu();
+        ApplyOverlayState();
+        RefreshTargetScreen(force: true);
     }
 
     private void RequestOpenSettings()

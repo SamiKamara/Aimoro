@@ -65,6 +65,7 @@ public sealed class SettingsForm : Form
     private readonly NumericUpDown _reticleGapUpDown = CreateNumeric(0, 60);
     private readonly NumericUpDown _reticleThicknessUpDown = CreateNumeric(1, 12);
     private readonly NumericUpDown _reticleOpacityUpDown = CreateNumeric(20, 255);
+    private readonly NumericUpDown _reticleScaleUpDown = CreateScaleNumeric();
     private readonly CheckBox _centerDotCheckBox = new()
     {
         AutoSize = true,
@@ -72,15 +73,16 @@ public sealed class SettingsForm : Form
     };
 
     private readonly NumericUpDown _centerDotSizeUpDown = CreateNumeric(1, 20);
-    private readonly Panel _colorPreviewPanel = new()
-    {
-        Width = 32,
-        Height = 32,
-        BorderStyle = BorderStyle.FixedSingle,
-        Margin = new Padding(0, 0, 8, 0)
-    };
+    private readonly Panel _colorPreviewPanel = CreateColorPreviewPanel();
+    private readonly Panel _outlineColorPreviewPanel = CreateColorPreviewPanel();
 
     private readonly Button _pickColorButton = new()
+    {
+        AutoSize = true,
+        Text = "Pick color..."
+    };
+
+    private readonly Button _pickOutlineColorButton = new()
     {
         AutoSize = true,
         Text = "Pick color..."
@@ -92,13 +94,16 @@ public sealed class SettingsForm : Form
     };
 
     private Color _selectedColor;
+    private Color _selectedOutlineColor;
     private bool _sizedToContent;
+    private bool _bindingValues;
 
     public SettingsForm(AppSettings settings)
     {
-        ResultSettings = settings.Clone();
         settings.Normalize();
+        ResultSettings = settings.Clone();
         _selectedColor = ColorTranslator.FromHtml(settings.ReticleColorHex);
+        _selectedOutlineColor = ColorTranslator.FromHtml(settings.ReticleOutlineColorHex);
 
         Text = "Aimoro Settings";
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -109,10 +114,15 @@ public sealed class SettingsForm : Form
         ClientSize = new Size(600, 640);
 
         BuildLayout();
+        _bindingValues = true;
         BindValues(settings);
+        _bindingValues = false;
+        WireLiveApplyEvents();
     }
 
     public AppSettings ResultSettings { get; private set; }
+
+    public event EventHandler? SettingsChanged;
 
     private static NumericUpDown CreateNumeric(int minimum, int maximum)
     {
@@ -121,6 +131,29 @@ public sealed class SettingsForm : Form
             Minimum = minimum,
             Maximum = maximum,
             Width = 80
+        };
+    }
+
+    private static NumericUpDown CreateScaleNumeric()
+    {
+        return new NumericUpDown
+        {
+            Minimum = 0.5m,
+            Maximum = 5.0m,
+            DecimalPlaces = 1,
+            Increment = 0.1m,
+            Width = 80
+        };
+    }
+
+    private static Panel CreateColorPreviewPanel()
+    {
+        return new Panel
+        {
+            Width = 32,
+            Height = 32,
+            BorderStyle = BorderStyle.FixedSingle,
+            Margin = new Padding(0, 0, 8, 0)
         };
     }
 
@@ -265,7 +298,7 @@ public sealed class SettingsForm : Form
         {
             AutoSize = true,
             Anchor = AnchorStyles.Left,
-            Text = "Color"
+            Text = "Main color"
         }, 0, 0);
 
         var colorPanel = new FlowLayoutPanel
@@ -283,35 +316,61 @@ public sealed class SettingsForm : Form
         {
             AutoSize = true,
             Anchor = AnchorStyles.Left,
-            Text = "Arm length"
+            Text = "Outline color"
         }, 0, 1);
-        layout.Controls.Add(_reticleLengthUpDown, 1, 1);
+
+        var outlineColorPanel = new FlowLayoutPanel
+        {
+            AutoSize = true,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false
+        };
+
+        outlineColorPanel.Controls.Add(_outlineColorPreviewPanel);
+        outlineColorPanel.Controls.Add(_pickOutlineColorButton);
+        layout.Controls.Add(outlineColorPanel, 1, 1);
+
+        layout.Controls.Add(new Label
+        {
+            AutoSize = true,
+            Anchor = AnchorStyles.Left,
+            Text = "Scale (×)"
+        }, 0, 2);
+        layout.Controls.Add(_reticleScaleUpDown, 1, 2);
+
+        layout.Controls.Add(new Label
+        {
+            AutoSize = true,
+            Anchor = AnchorStyles.Left,
+            Text = "Arm length"
+        }, 0, 3);
+        layout.Controls.Add(_reticleLengthUpDown, 1, 3);
 
         layout.Controls.Add(new Label
         {
             AutoSize = true,
             Anchor = AnchorStyles.Left,
             Text = "Gap from center"
-        }, 0, 2);
-        layout.Controls.Add(_reticleGapUpDown, 1, 2);
+        }, 0, 4);
+        layout.Controls.Add(_reticleGapUpDown, 1, 4);
 
         layout.Controls.Add(new Label
         {
             AutoSize = true,
             Anchor = AnchorStyles.Left,
             Text = "Line thickness"
-        }, 0, 3);
-        layout.Controls.Add(_reticleThicknessUpDown, 1, 3);
+        }, 0, 5);
+        layout.Controls.Add(_reticleThicknessUpDown, 1, 5);
 
         layout.Controls.Add(new Label
         {
             AutoSize = true,
             Anchor = AnchorStyles.Left,
             Text = "Opacity"
-        }, 0, 4);
-        layout.Controls.Add(_reticleOpacityUpDown, 1, 4);
+        }, 0, 6);
+        layout.Controls.Add(_reticleOpacityUpDown, 1, 6);
 
-        layout.Controls.Add(_centerDotCheckBox, 0, 5);
+        layout.Controls.Add(_centerDotCheckBox, 0, 7);
         layout.SetColumnSpan(_centerDotCheckBox, 2);
 
         layout.Controls.Add(new Label
@@ -319,10 +378,11 @@ public sealed class SettingsForm : Form
             AutoSize = true,
             Anchor = AnchorStyles.Left,
             Text = "Center dot size"
-        }, 0, 6);
-        layout.Controls.Add(_centerDotSizeUpDown, 1, 6);
+        }, 0, 8);
+        layout.Controls.Add(_centerDotSizeUpDown, 1, 8);
 
         _pickColorButton.Click += (_, _) => PickColor();
+        _pickOutlineColorButton.Click += (_, _) => PickOutlineColor();
         _centerDotCheckBox.CheckedChanged += (_, _) => _centerDotSizeUpDown.Enabled = _centerDotCheckBox.Checked;
 
         group.Controls.Add(layout);
@@ -331,16 +391,16 @@ public sealed class SettingsForm : Form
 
     private FlowLayoutPanel CreateButtonPanel()
     {
-        var saveButton = new Button
+        var closeButton = new Button
         {
             AutoSize = true,
-            Text = "Save"
+            Text = "Close"
         };
 
-        saveButton.Click += (_, _) => SaveAndClose();
+        closeButton.Click += (_, _) => CloseSettings();
 
-        AcceptButton = saveButton;
-        _buttonPanel.Controls.Add(saveButton);
+        AcceptButton = closeButton;
+        _buttonPanel.Controls.Add(closeButton);
         return _buttonPanel;
     }
 
@@ -443,9 +503,11 @@ public sealed class SettingsForm : Form
         _reticleGapUpDown.Value = settings.ReticleGap;
         _reticleThicknessUpDown.Value = settings.ReticleThickness;
         _reticleOpacityUpDown.Value = settings.ReticleOpacity;
+        _reticleScaleUpDown.Value = settings.ReticleScale;
         _centerDotCheckBox.Checked = settings.ShowCenterDot;
         _centerDotSizeUpDown.Value = settings.CenterDotSize;
         _colorPreviewPanel.BackColor = _selectedColor;
+        _outlineColorPreviewPanel.BackColor = _selectedOutlineColor;
 
         UpdateMonitorState();
         UpdateHoldModeState();
@@ -469,10 +531,88 @@ public sealed class SettingsForm : Form
         {
             _selectedColor = _colorDialog.Color;
             _colorPreviewPanel.BackColor = _selectedColor;
+            ApplyChanges();
         }
     }
 
-    private void SaveAndClose()
+    private void PickOutlineColor()
+    {
+        _colorDialog.Color = _selectedOutlineColor;
+        if (_colorDialog.ShowDialog(this) == DialogResult.OK)
+        {
+            _selectedOutlineColor = _colorDialog.Color;
+            _outlineColorPreviewPanel.BackColor = _selectedOutlineColor;
+            ApplyChanges();
+        }
+    }
+
+    private void WireLiveApplyEvents()
+    {
+        _overlayEnabledCheckBox.CheckedChanged += (_, _) => ApplyChanges();
+        _autoDetectCheckBox.CheckedChanged += (_, _) => ApplyChanges();
+        _monitorComboBox.SelectedIndexChanged += (_, _) => ApplyChanges();
+        _toggleHotkeyTextBox.HotkeyChanged += (_, _) => ApplyChanges();
+        _cycleHotkeyTextBox.HotkeyChanged += (_, _) => ApplyChanges();
+        _openSettingsHotkeyTextBox.HotkeyChanged += (_, _) => ApplyChanges();
+        _holdToShowCheckBox.CheckedChanged += (_, _) => ApplyChanges();
+        _holdToShowMouseButtonComboBox.SelectedIndexChanged += (_, _) => ApplyChanges();
+        _reticleLengthUpDown.ValueChanged += (_, _) => ApplyChanges();
+        _reticleGapUpDown.ValueChanged += (_, _) => ApplyChanges();
+        _reticleThicknessUpDown.ValueChanged += (_, _) => ApplyChanges();
+        _reticleOpacityUpDown.ValueChanged += (_, _) => ApplyChanges();
+        _reticleScaleUpDown.ValueChanged += (_, _) => ApplyChanges();
+        _centerDotCheckBox.CheckedChanged += (_, _) => ApplyChanges();
+        _centerDotSizeUpDown.ValueChanged += (_, _) => ApplyChanges();
+    }
+
+    private void ApplyChanges()
+    {
+        if (_bindingValues)
+        {
+            return;
+        }
+
+        var updatedSettings = ReadSettings();
+
+        // Keep the last valid bindings while an incomplete or duplicate shortcut
+        // is being edited. All other controls can still apply immediately.
+        if (!_toggleHotkeyTextBox.Hotkey.IsValid || ValidateHotkeys() is not null)
+        {
+            updatedSettings.ToggleHotkey = ResultSettings.ToggleHotkey.Clone();
+            updatedSettings.CycleMonitorHotkey = ResultSettings.CycleMonitorHotkey.Clone();
+            updatedSettings.OpenSettingsHotkey = ResultSettings.OpenSettingsHotkey.Clone();
+        }
+
+        updatedSettings.Normalize();
+        ResultSettings = updatedSettings;
+        SettingsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private AppSettings ReadSettings()
+    {
+        return new AppSettings
+        {
+            OverlayEnabled = _overlayEnabledCheckBox.Checked,
+            AutoDetectSteamGameMonitor = _autoDetectCheckBox.Checked,
+            SelectedMonitorDeviceName = (_monitorComboBox.SelectedItem as DisplayOption)?.DeviceName,
+            ToggleHotkey = _toggleHotkeyTextBox.Hotkey,
+            CycleMonitorHotkey = _cycleHotkeyTextBox.Hotkey,
+            OpenSettingsHotkey = _openSettingsHotkeyTextBox.Hotkey,
+            HoldToShowEnabled = _holdToShowCheckBox.Checked,
+            HoldToShowMouseButton = (_holdToShowMouseButtonComboBox.SelectedItem as HoldMouseButtonOption)?.MouseButton ?? HoldToShowMouseButton.RightButton,
+            ReticleColorHex = ColorTranslator.ToHtml(_selectedColor),
+            ReticleOutlineColorHex = ColorTranslator.ToHtml(_selectedOutlineColor),
+            ReticleLength = (int)_reticleLengthUpDown.Value,
+            ReticleGap = (int)_reticleGapUpDown.Value,
+            ReticleThickness = (int)_reticleThicknessUpDown.Value,
+            ReticleOpacity = (int)_reticleOpacityUpDown.Value,
+            ReticleScale = _reticleScaleUpDown.Value,
+            ShowCenterDot = _centerDotCheckBox.Checked,
+            CenterDotSize = (int)_centerDotSizeUpDown.Value
+        };
+    }
+
+    private void CloseSettings()
     {
         if (!_toggleHotkeyTextBox.Hotkey.IsValid)
         {
@@ -497,26 +637,7 @@ public sealed class SettingsForm : Form
             return;
         }
 
-        ResultSettings = new AppSettings
-        {
-            OverlayEnabled = _overlayEnabledCheckBox.Checked,
-            AutoDetectSteamGameMonitor = _autoDetectCheckBox.Checked,
-            SelectedMonitorDeviceName = (_monitorComboBox.SelectedItem as DisplayOption)?.DeviceName,
-            ToggleHotkey = _toggleHotkeyTextBox.Hotkey,
-            CycleMonitorHotkey = _cycleHotkeyTextBox.Hotkey,
-            OpenSettingsHotkey = _openSettingsHotkeyTextBox.Hotkey,
-            HoldToShowEnabled = _holdToShowCheckBox.Checked,
-            HoldToShowMouseButton = (_holdToShowMouseButtonComboBox.SelectedItem as HoldMouseButtonOption)?.MouseButton ?? HoldToShowMouseButton.RightButton,
-            ReticleColorHex = ColorTranslator.ToHtml(_selectedColor),
-            ReticleLength = (int)_reticleLengthUpDown.Value,
-            ReticleGap = (int)_reticleGapUpDown.Value,
-            ReticleThickness = (int)_reticleThicknessUpDown.Value,
-            ReticleOpacity = (int)_reticleOpacityUpDown.Value,
-            ShowCenterDot = _centerDotCheckBox.Checked,
-            CenterDotSize = (int)_centerDotSizeUpDown.Value
-        };
-
-        ResultSettings.Normalize();
+        ApplyChanges();
         DialogResult = DialogResult.OK;
         Close();
     }

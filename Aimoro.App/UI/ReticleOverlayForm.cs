@@ -49,6 +49,7 @@ public sealed class ReticleOverlayForm : Form
     {
         _settings = settings.Clone();
         _settings.Normalize();
+        Opacity = _settings.ReticleOpacity / 255d;
         UpdateOverlayBounds();
         Invalidate();
     }
@@ -62,12 +63,14 @@ public sealed class ReticleOverlayForm : Form
 
     private void UpdateOverlayBounds()
     {
-        var maxCrosshairExtent = _settings.ReticleGap + _settings.ReticleLength + (int)Math.Ceiling(_settings.ReticleThickness / 2d);
+        var scale = (double)_settings.ReticleScale;
+        var outlineThickness = (_settings.ReticleThickness + 2d) * scale;
+        var maxCrosshairExtent = ((_settings.ReticleGap + _settings.ReticleLength) * scale) + scale + (outlineThickness / 2d);
         var centerDotExtent = _settings.ShowCenterDot
-            ? (int)Math.Ceiling(_settings.CenterDotSize / 2d)
+            ? ((_settings.CenterDotSize * scale) / 2d) + scale
             : 0;
 
-        var radius = Math.Max(maxCrosshairExtent, centerDotExtent) + OverlayPadding;
+        var radius = (int)Math.Ceiling(Math.Max(maxCrosshairExtent, centerDotExtent)) + OverlayPadding;
         var size = (radius * 2) + 1;
         var screenBounds = _targetScreen.Bounds;
         var centerX = screenBounds.Left + (screenBounds.Width / 2);
@@ -89,54 +92,84 @@ public sealed class ReticleOverlayForm : Form
     {
         base.OnPaint(e);
 
-        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        e.Graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+        // A color-keyed transparent window cannot preserve partially transparent
+        // anti-aliased pixels. Crisp rendering keeps the transparency key from
+        // bleeding into the visible outline.
+        e.Graphics.SmoothingMode = SmoothingMode.None;
+        e.Graphics.PixelOffsetMode = PixelOffsetMode.Half;
 
-        var center = new Point(ClientSize.Width / 2, ClientSize.Height / 2);
-        using var pen = new Pen(_settings.GetReticleColor(), _settings.ReticleThickness)
-        {
-            StartCap = LineCap.Round,
-            EndCap = LineCap.Round
-        };
+        var center = new PointF(ClientSize.Width / 2f, ClientSize.Height / 2f);
+        var scale = (float)_settings.ReticleScale;
+        var thickness = _settings.ReticleThickness * scale;
+        using var outlinePen = CreateReticlePen(_settings.GetReticleOutlineColor(), thickness + (2f * scale));
+        using var fillPen = CreateReticlePen(_settings.GetReticleColor(), thickness);
 
-        var length = _settings.ReticleLength;
-        var gap = _settings.ReticleGap;
+        var length = _settings.ReticleLength * scale;
+        var gap = _settings.ReticleGap * scale;
 
-        e.Graphics.DrawLine(
-            pen,
-            center.X - gap - length,
-            center.Y,
-            center.X - gap,
-            center.Y);
-
-        e.Graphics.DrawLine(
-            pen,
-            center.X + gap,
-            center.Y,
-            center.X + gap + length,
-            center.Y);
-
-        e.Graphics.DrawLine(
-            pen,
-            center.X,
-            center.Y - gap - length,
-            center.X,
-            center.Y - gap);
-
-        e.Graphics.DrawLine(
-            pen,
-            center.X,
-            center.Y + gap,
-            center.X,
-            center.Y + gap + length);
+        DrawCrosshair(e.Graphics, outlinePen, center, length, gap, scale);
+        DrawCrosshair(e.Graphics, fillPen, center, length, gap);
 
         if (_settings.ShowCenterDot)
         {
-            var size = _settings.CenterDotSize;
-            var rectangle = new Rectangle(center.X - (size / 2), center.Y - (size / 2), size, size);
-            using var brush = new SolidBrush(_settings.GetReticleColor());
-            e.Graphics.FillEllipse(brush, rectangle);
+            var size = _settings.CenterDotSize * scale;
+            var outlineSize = size + (2f * scale);
+            using var outlineBrush = new SolidBrush(_settings.GetReticleOutlineColor());
+            using var fillBrush = new SolidBrush(_settings.GetReticleColor());
+            e.Graphics.FillRectangle(outlineBrush, CenteredRectangle(center, outlineSize));
+            e.Graphics.FillRectangle(fillBrush, CenteredRectangle(center, size));
         }
+    }
+
+    private static Pen CreateReticlePen(Color color, float width)
+    {
+        return new Pen(color, width)
+        {
+            StartCap = LineCap.Flat,
+            EndCap = LineCap.Flat
+        };
+    }
+
+    private static void DrawCrosshair(
+        Graphics graphics,
+        Pen pen,
+        PointF center,
+        float length,
+        float gap,
+        float endPadding = 0f)
+    {
+        graphics.DrawLine(
+            pen,
+            center.X - gap - length - endPadding,
+            center.Y,
+            center.X - gap + endPadding,
+            center.Y);
+
+        graphics.DrawLine(
+            pen,
+            center.X + gap - endPadding,
+            center.Y,
+            center.X + gap + length + endPadding,
+            center.Y);
+
+        graphics.DrawLine(
+            pen,
+            center.X,
+            center.Y - gap - length - endPadding,
+            center.X,
+            center.Y - gap + endPadding);
+
+        graphics.DrawLine(
+            pen,
+            center.X,
+            center.Y + gap - endPadding,
+            center.X,
+            center.Y + gap + length + endPadding);
+    }
+
+    private static RectangleF CenteredRectangle(PointF center, float size)
+    {
+        return new RectangleF(center.X - (size / 2f), center.Y - (size / 2f), size, size);
     }
 
     protected override void WndProc(ref Message m)
