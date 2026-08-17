@@ -1,3 +1,4 @@
+using Aimoro.App.Native;
 using System.Drawing;
 
 namespace Aimoro.App.UI;
@@ -8,7 +9,8 @@ public sealed class SettingsForm : Form
     {
         Dock = DockStyle.Fill,
         AutoScroll = true,
-        Margin = new Padding(0, 0, 0, 8)
+        BackColor = DarkUiTheme.WindowBackground,
+        Margin = Padding.Empty
     };
 
     private readonly TableLayoutPanel _contentPanel = new()
@@ -16,49 +18,33 @@ public sealed class SettingsForm : Form
         Dock = DockStyle.Top,
         AutoSize = true,
         AutoSizeMode = AutoSizeMode.GrowAndShrink,
+        BackColor = DarkUiTheme.WindowBackground,
         ColumnCount = 1,
         Margin = Padding.Empty
     };
 
-    private readonly FlowLayoutPanel _buttonPanel = new()
-    {
-        Dock = DockStyle.Fill,
-        FlowDirection = FlowDirection.RightToLeft,
-        AutoSize = true,
-        AutoSizeMode = AutoSizeMode.GrowAndShrink,
-        Margin = Padding.Empty,
-        Padding = new Padding(0, 4, 0, 0)
-    };
+    private readonly CheckBox _overlayEnabledCheckBox = DarkUiTheme.CreateCheckBox(
+        "Enable the reticle when Aimoro starts");
 
-    private readonly CheckBox _overlayEnabledCheckBox = new()
-    {
-        AutoSize = true,
-        Text = "Enable the reticle when Aimoro starts"
-    };
-
-    private readonly CheckBox _autoDetectCheckBox = new()
-    {
-        AutoSize = true,
-        Text = "Automatically place the reticle on the monitor with a detected Steam game"
-    };
+    private readonly CheckBox _autoDetectCheckBox = DarkUiTheme.CreateCheckBox(
+        "Automatically place the reticle on the monitor with a detected Steam game");
 
     private readonly ComboBox _monitorComboBox = new()
     {
-        DropDownStyle = ComboBoxStyle.DropDownList
+        DropDownStyle = ComboBoxStyle.DropDownList,
+        Width = 325
     };
 
-    private readonly HotkeyTextBox _toggleHotkeyTextBox = new();
-    private readonly HotkeyTextBox _cycleHotkeyTextBox = new();
-    private readonly HotkeyTextBox _openSettingsHotkeyTextBox = new();
-    private readonly CheckBox _holdToShowCheckBox = new()
-    {
-        AutoSize = true,
-        Text = "Only show the reticle while a mouse button is held"
-    };
+    private readonly HotkeyTextBox _toggleHotkeyTextBox = new() { Width = 325 };
+    private readonly HotkeyTextBox _cycleHotkeyTextBox = new() { Width = 325 };
+    private readonly HotkeyTextBox _openSettingsHotkeyTextBox = new() { Width = 325 };
+    private readonly CheckBox _holdToShowCheckBox = DarkUiTheme.CreateCheckBox(
+        "Only show the reticle while a mouse button is held");
 
     private readonly ComboBox _holdToShowMouseButtonComboBox = new()
     {
-        DropDownStyle = ComboBoxStyle.DropDownList
+        DropDownStyle = ComboBoxStyle.DropDownList,
+        Width = 325
     };
 
     private readonly NumericUpDown _reticleLengthUpDown = CreateNumeric(4, 120);
@@ -66,27 +52,15 @@ public sealed class SettingsForm : Form
     private readonly NumericUpDown _reticleThicknessUpDown = CreateNumeric(1, 12);
     private readonly NumericUpDown _reticleOpacityUpDown = CreateNumeric(20, 255);
     private readonly NumericUpDown _reticleScaleUpDown = CreateScaleNumeric();
-    private readonly CheckBox _centerDotCheckBox = new()
-    {
-        AutoSize = true,
-        Text = "Show a center dot"
-    };
+    private readonly CheckBox _centerDotCheckBox = DarkUiTheme.CreateCheckBox("Show a center dot");
 
     private readonly NumericUpDown _centerDotSizeUpDown = CreateNumeric(1, 20);
     private readonly Panel _colorPreviewPanel = CreateColorPreviewPanel();
     private readonly Panel _outlineColorPreviewPanel = CreateColorPreviewPanel();
 
-    private readonly Button _pickColorButton = new()
-    {
-        AutoSize = true,
-        Text = "Pick color..."
-    };
+    private readonly Button _pickColorButton = DarkUiTheme.CreateButton("Change", primary: false, 92);
 
-    private readonly Button _pickOutlineColorButton = new()
-    {
-        AutoSize = true,
-        Text = "Pick color..."
-    };
+    private readonly Button _pickOutlineColorButton = DarkUiTheme.CreateButton("Change", primary: false, 92);
 
     private readonly ColorDialog _colorDialog = new()
     {
@@ -111,9 +85,14 @@ public sealed class SettingsForm : Form
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
         ShowInTaskbar = false;
-        ClientSize = new Size(600, 640);
+        AutoScaleMode = AutoScaleMode.Dpi;
+        BackColor = DarkUiTheme.WindowBackground;
+        ForeColor = DarkUiTheme.PrimaryText;
+        Font = new Font("Segoe UI", 9.25F, FontStyle.Regular, GraphicsUnit.Point);
+        ClientSize = new Size(570, 720);
 
         BuildLayout();
+        DarkUiTheme.ApplyTo(this);
         _bindingValues = true;
         BindValues(settings);
         _bindingValues = false;
@@ -153,7 +132,7 @@ public sealed class SettingsForm : Form
             Width = 32,
             Height = 32,
             BorderStyle = BorderStyle.FixedSingle,
-            Margin = new Padding(0, 0, 8, 0)
+            Margin = new Padding(0, 3, 0, 3)
         };
     }
 
@@ -161,19 +140,19 @@ public sealed class SettingsForm : Form
     {
         var root = new TableLayoutPanel
         {
+            BackColor = DarkUiTheme.WindowBackground,
             Dock = DockStyle.Fill,
-            Padding = new Padding(12),
+            Padding = Padding.Empty,
             ColumnCount = 1,
             RowCount = 2
         };
 
-        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
         var behaviorGroup = CreateBehaviorGroup();
         var hotkeysGroup = CreateHotkeysGroup();
         var reticleGroup = CreateReticleGroup();
-        var buttonPanel = CreateButtonPanel();
 
         behaviorGroup.Margin = new Padding(0, 0, 0, 12);
         hotkeysGroup.Margin = new Padding(0, 0, 0, 12);
@@ -182,25 +161,65 @@ public sealed class SettingsForm : Form
         _contentPanel.Controls.Add(behaviorGroup, 0, 0);
         _contentPanel.Controls.Add(hotkeysGroup, 0, 1);
         _contentPanel.Controls.Add(reticleGroup, 0, 2);
+        _contentPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
+        _scrollPanel.Padding = new Padding(18, 0, 24, 18);
         _scrollPanel.Controls.Add(_contentPanel);
-        root.Controls.Add(_scrollPanel, 0, 0);
-        root.Controls.Add(buttonPanel, 0, 1);
+        root.Controls.Add(CreateHeader(), 0, 0);
+        root.Controls.Add(_scrollPanel, 0, 1);
 
         Controls.Add(root);
     }
 
+    private Control CreateHeader()
+    {
+        var header = new TableLayoutPanel
+        {
+            AutoSize = true,
+            BackColor = DarkUiTheme.WindowBackground,
+            ColumnCount = 1,
+            Dock = DockStyle.Top,
+            Margin = Padding.Empty,
+            Padding = new Padding(22, 18, 22, 14)
+        };
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+
+        var title = new Label
+        {
+            AutoSize = true,
+            Font = new Font(Font.FontFamily, 18F, FontStyle.Bold),
+            ForeColor = DarkUiTheme.PrimaryText,
+            Margin = Padding.Empty,
+            Text = "Aimoro"
+        };
+        var subtitle = new Label
+        {
+            AutoSize = true,
+            ForeColor = DarkUiTheme.SecondaryText,
+            Margin = new Padding(0, 4, 0, 0),
+            MaximumSize = new Size(620, 0),
+            Text = "Customize reticle appearance, display targeting, behavior, and global shortcuts."
+        };
+
+        header.Controls.Add(title, 0, 0);
+        header.Controls.Add(subtitle, 0, 1);
+        return header;
+    }
+
     private GroupBox CreateBehaviorGroup()
     {
-        var group = new GroupBox
+        var group = new DarkGroupBox
         {
             Text = "Behavior",
             Dock = DockStyle.Top,
             AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Font = new Font(Font, FontStyle.Bold),
+            Padding = new Padding(12, 10, 12, 12)
         };
 
         var layout = CreateTwoColumnLayout();
+        layout.Font = Font;
         layout.Controls.Add(_overlayEnabledCheckBox, 0, 0);
         layout.SetColumnSpan(_overlayEnabledCheckBox, 2);
 
@@ -241,15 +260,18 @@ public sealed class SettingsForm : Form
 
     private GroupBox CreateHotkeysGroup()
     {
-        var group = new GroupBox
+        var group = new DarkGroupBox
         {
             Text = "Hotkeys",
             Dock = DockStyle.Top,
             AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Font = new Font(Font, FontStyle.Bold),
+            Padding = new Padding(12, 10, 12, 12)
         };
 
         var layout = CreateTwoColumnLayout();
+        layout.Font = Font;
         layout.Controls.Add(new Label
         {
             AutoSize = true,
@@ -284,15 +306,18 @@ public sealed class SettingsForm : Form
 
     private GroupBox CreateReticleGroup()
     {
-        var group = new GroupBox
+        var group = new DarkGroupBox
         {
             Text = "Reticle",
             Dock = DockStyle.Top,
             AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Font = new Font(Font, FontStyle.Bold),
+            Padding = new Padding(12, 10, 12, 12)
         };
 
         var layout = CreateTwoColumnLayout();
+        layout.Font = Font;
 
         layout.Controls.Add(new Label
         {
@@ -304,7 +329,9 @@ public sealed class SettingsForm : Form
         var colorPanel = new FlowLayoutPanel
         {
             AutoSize = true,
+            BackColor = DarkUiTheme.CardBackground,
             FlowDirection = FlowDirection.LeftToRight,
+            Margin = new Padding(3),
             WrapContents = false
         };
 
@@ -322,7 +349,9 @@ public sealed class SettingsForm : Form
         var outlineColorPanel = new FlowLayoutPanel
         {
             AutoSize = true,
+            BackColor = DarkUiTheme.CardBackground,
             FlowDirection = FlowDirection.LeftToRight,
+            Margin = new Padding(3),
             WrapContents = false
         };
 
@@ -330,47 +359,56 @@ public sealed class SettingsForm : Form
         outlineColorPanel.Controls.Add(_pickOutlineColorButton);
         layout.Controls.Add(outlineColorPanel, 1, 1);
 
+        var colorSectionSpacer = new Panel
+        {
+            BackColor = DarkUiTheme.CardBackground,
+            Height = 8,
+            Margin = Padding.Empty
+        };
+        layout.Controls.Add(colorSectionSpacer, 0, 2);
+        layout.SetColumnSpan(colorSectionSpacer, 2);
+
         layout.Controls.Add(new Label
         {
             AutoSize = true,
             Anchor = AnchorStyles.Left,
             Text = "Scale (×)"
-        }, 0, 2);
-        layout.Controls.Add(_reticleScaleUpDown, 1, 2);
+        }, 0, 3);
+        layout.Controls.Add(_reticleScaleUpDown, 1, 3);
 
         layout.Controls.Add(new Label
         {
             AutoSize = true,
             Anchor = AnchorStyles.Left,
             Text = "Arm length"
-        }, 0, 3);
-        layout.Controls.Add(_reticleLengthUpDown, 1, 3);
+        }, 0, 4);
+        layout.Controls.Add(_reticleLengthUpDown, 1, 4);
 
         layout.Controls.Add(new Label
         {
             AutoSize = true,
             Anchor = AnchorStyles.Left,
             Text = "Gap from center"
-        }, 0, 4);
-        layout.Controls.Add(_reticleGapUpDown, 1, 4);
+        }, 0, 5);
+        layout.Controls.Add(_reticleGapUpDown, 1, 5);
 
         layout.Controls.Add(new Label
         {
             AutoSize = true,
             Anchor = AnchorStyles.Left,
             Text = "Line thickness"
-        }, 0, 5);
-        layout.Controls.Add(_reticleThicknessUpDown, 1, 5);
+        }, 0, 6);
+        layout.Controls.Add(_reticleThicknessUpDown, 1, 6);
 
         layout.Controls.Add(new Label
         {
             AutoSize = true,
             Anchor = AnchorStyles.Left,
             Text = "Opacity"
-        }, 0, 6);
-        layout.Controls.Add(_reticleOpacityUpDown, 1, 6);
+        }, 0, 7);
+        layout.Controls.Add(_reticleOpacityUpDown, 1, 7);
 
-        layout.Controls.Add(_centerDotCheckBox, 0, 7);
+        layout.Controls.Add(_centerDotCheckBox, 0, 8);
         layout.SetColumnSpan(_centerDotCheckBox, 2);
 
         layout.Controls.Add(new Label
@@ -378,8 +416,8 @@ public sealed class SettingsForm : Form
             AutoSize = true,
             Anchor = AnchorStyles.Left,
             Text = "Center dot size"
-        }, 0, 8);
-        layout.Controls.Add(_centerDotSizeUpDown, 1, 8);
+        }, 0, 9);
+        layout.Controls.Add(_centerDotSizeUpDown, 1, 9);
 
         _pickColorButton.Click += (_, _) => PickColor();
         _pickOutlineColorButton.Click += (_, _) => PickOutlineColor();
@@ -387,21 +425,6 @@ public sealed class SettingsForm : Form
 
         group.Controls.Add(layout);
         return group;
-    }
-
-    private FlowLayoutPanel CreateButtonPanel()
-    {
-        var closeButton = new Button
-        {
-            AutoSize = true,
-            Text = "Close"
-        };
-
-        closeButton.Click += (_, _) => CloseSettings();
-
-        AcceptButton = closeButton;
-        _buttonPanel.Controls.Add(closeButton);
-        return _buttonPanel;
     }
 
     protected override void OnShown(EventArgs e)
@@ -418,24 +441,45 @@ public sealed class SettingsForm : Form
         CenterToScreen();
     }
 
+    protected override void OnHandleCreated(EventArgs eventArgs)
+    {
+        base.OnHandleCreated(eventArgs);
+        var darkModeEnabled = 1;
+        const int useImmersiveDarkMode = 20;
+        const int useImmersiveDarkModeBefore20H1 = 19;
+        if (NativeMethods.DwmSetWindowAttribute(
+                Handle,
+                useImmersiveDarkMode,
+                ref darkModeEnabled,
+                sizeof(int)) != 0)
+        {
+            NativeMethods.DwmSetWindowAttribute(
+                Handle,
+                useImmersiveDarkModeBefore20H1,
+                ref darkModeEnabled,
+                sizeof(int));
+        }
+    }
+
     private void AdjustSizeToContent()
     {
-        var targetClientWidth = 600;
-        var buttonSize = _buttonPanel.GetPreferredSize(Size.Empty);
+        var targetClientWidth = 570;
 
         var workingArea = Screen.FromPoint(Cursor.Position).WorkingArea;
         var nonClientWidth = Width - ClientSize.Width;
         var nonClientHeight = Height - ClientSize.Height;
-        var maxClientWidth = Math.Max(560, workingArea.Width - nonClientWidth - 32);
-        var maxClientHeight = Math.Max(520, workingArea.Height - nonClientHeight - 32);
+        var maxClientWidth = Math.Max(550, workingArea.Width - nonClientWidth - 32);
+        var maxClientHeight = Math.Max(560, workingArea.Height - nonClientHeight - 32);
 
         var clientWidth = Math.Min(targetClientWidth, maxClientWidth);
         ClientSize = new Size(clientWidth, ClientSize.Height);
 
         PerformLayout();
 
-        var contentSize = _contentPanel.GetPreferredSize(new Size(clientWidth - 24, 0));
-        var desiredClientHeight = Math.Max(640, contentSize.Height + buttonSize.Height + 36);
+        var contentSize = _contentPanel.GetPreferredSize(new Size(clientWidth - _scrollPanel.Padding.Horizontal, 0));
+        var desiredClientHeight = Math.Max(
+            654,
+            _scrollPanel.Top + contentSize.Height + _scrollPanel.Padding.Vertical);
 
         ClientSize = new Size(
             clientWidth,
@@ -449,12 +493,13 @@ public sealed class SettingsForm : Form
             Dock = DockStyle.Fill,
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            BackColor = DarkUiTheme.CardBackground,
             ColumnCount = 2,
-            Padding = new Padding(12)
+            Padding = new Padding(10, 4, 10, 8)
         };
 
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 32));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 68));
         return layout;
     }
 
@@ -463,8 +508,8 @@ public sealed class SettingsForm : Form
         return new Label
         {
             AutoSize = true,
-            ForeColor = SystemColors.GrayText,
-            MaximumSize = new Size(470, 0),
+            ForeColor = DarkUiTheme.SecondaryText,
+            MaximumSize = new Size(560, 0),
             Text = text
         };
     }
@@ -610,36 +655,6 @@ public sealed class SettingsForm : Form
             ShowCenterDot = _centerDotCheckBox.Checked,
             CenterDotSize = (int)_centerDotSizeUpDown.Value
         };
-    }
-
-    private void CloseSettings()
-    {
-        if (!_toggleHotkeyTextBox.Hotkey.IsValid)
-        {
-            MessageBox.Show(
-                this,
-                "The reticle toggle hotkey is required.",
-                "Aimoro",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Warning);
-            return;
-        }
-
-        var duplicateMessage = ValidateHotkeys();
-        if (duplicateMessage is not null)
-        {
-            MessageBox.Show(
-                this,
-                duplicateMessage,
-                "Aimoro",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Warning);
-            return;
-        }
-
-        ApplyChanges();
-        DialogResult = DialogResult.OK;
-        Close();
     }
 
     private string? ValidateHotkeys()
