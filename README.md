@@ -5,7 +5,7 @@ Aimoro is a standalone Windows reticle overlay app built in C# / WinForms.
 It provides:
 
 - An always-on-top center reticle overlay
-- Live reticle customization for main and outline colors, opacity, scale, arm length, gap, thickness, and an optional center dot
+- Live reticle customization with sliders and exact numeric inputs for opacity, scale, arm length, gap, thickness, and an optional center dot
 - Global hotkeys to toggle the reticle and cycle monitors
 - A global hotkey to open settings
 - Automatic targeting for monitors that currently show a detected Steam game window
@@ -78,6 +78,19 @@ From the settings window, you can customize:
 - Line thickness
 - Opacity
 - Center dot visibility and size
+
+Click either color preview square or its **Change** button to open the color picker.
+
+Numeric settings provide sliders for quick adjustments while retaining editable number fields for exact values. The sliders focus on practical everyday ranges; typing a valid value outside a slider's range keeps that value and places the slider at its nearest end.
+
+| Setting | Slider range | Accepted numeric range |
+| --- | ---: | ---: |
+| Scale | 0.5–3.0 | 0.5–5.0 |
+| Arm length | 4–50 | 4–120 |
+| Gap from center | 0–30 | 0–60 |
+| Line thickness | 1–8 | 1–12 |
+| Opacity | 50–255 | 20–255 |
+| Center dot size | 1–10 | 1–20 |
 
 Changes are applied and saved immediately; the settings window only needs to be closed when you are done.
 

@@ -52,9 +52,15 @@ public sealed class SettingsForm : Form
     private readonly NumericUpDown _reticleThicknessUpDown = CreateNumeric(1, 12);
     private readonly NumericUpDown _reticleOpacityUpDown = CreateNumeric(20, 255);
     private readonly NumericUpDown _reticleScaleUpDown = CreateScaleNumeric();
+    private readonly TrackBar _reticleLengthSlider = CreateSlider(4, 50, 1, 5);
+    private readonly TrackBar _reticleGapSlider = CreateSlider(0, 30, 1, 5);
+    private readonly TrackBar _reticleThicknessSlider = CreateSlider(1, 8, 1, 2);
+    private readonly TrackBar _reticleOpacitySlider = CreateSlider(50, 255, 5, 20);
+    private readonly TrackBar _reticleScaleSlider = CreateSlider(5, 30, 1, 5);
     private readonly CheckBox _centerDotCheckBox = DarkUiTheme.CreateCheckBox("Show a center dot");
 
     private readonly NumericUpDown _centerDotSizeUpDown = CreateNumeric(1, 20);
+    private readonly TrackBar _centerDotSizeSlider = CreateSlider(1, 10, 1, 2);
     private readonly Panel _colorPreviewPanel = CreateColorPreviewPanel();
     private readonly Panel _outlineColorPreviewPanel = CreateColorPreviewPanel();
 
@@ -71,6 +77,7 @@ public sealed class SettingsForm : Form
     private Color _selectedOutlineColor;
     private bool _sizedToContent;
     private bool _bindingValues;
+    private bool _syncingNumericSliders;
 
     public SettingsForm(AppSettings settings)
     {
@@ -125,6 +132,21 @@ public sealed class SettingsForm : Form
         };
     }
 
+    private static TrackBar CreateSlider(int minimum, int maximum, int smallChange, int largeChange)
+    {
+        return new TrackBar
+        {
+            AutoSize = false,
+            Height = 30,
+            LargeChange = largeChange,
+            Maximum = maximum,
+            Minimum = minimum,
+            SmallChange = smallChange,
+            TickStyle = TickStyle.None,
+            Width = 220
+        };
+    }
+
     private static Panel CreateColorPreviewPanel()
     {
         return new Panel
@@ -132,8 +154,27 @@ public sealed class SettingsForm : Form
             Width = 32,
             Height = 32,
             BorderStyle = BorderStyle.FixedSingle,
+            Cursor = Cursors.Hand,
             Margin = new Padding(0, 3, 0, 3)
         };
+    }
+
+    private static FlowLayoutPanel CreateNumericSliderPanel(NumericUpDown numeric, TrackBar slider)
+    {
+        var panel = new FlowLayoutPanel
+        {
+            AutoSize = true,
+            BackColor = DarkUiTheme.CardBackground,
+            FlowDirection = FlowDirection.LeftToRight,
+            Margin = new Padding(3),
+            WrapContents = false
+        };
+
+        numeric.Margin = new Padding(0, 3, 8, 3);
+        slider.Margin = new Padding(0, 0, 0, 0);
+        panel.Controls.Add(numeric);
+        panel.Controls.Add(slider);
+        return panel;
     }
 
     private void BuildLayout()
@@ -374,7 +415,7 @@ public sealed class SettingsForm : Form
             Anchor = AnchorStyles.Left,
             Text = "Scale (×)"
         }, 0, 3);
-        layout.Controls.Add(_reticleScaleUpDown, 1, 3);
+        layout.Controls.Add(CreateNumericSliderPanel(_reticleScaleUpDown, _reticleScaleSlider), 1, 3);
 
         layout.Controls.Add(new Label
         {
@@ -382,7 +423,7 @@ public sealed class SettingsForm : Form
             Anchor = AnchorStyles.Left,
             Text = "Arm length"
         }, 0, 4);
-        layout.Controls.Add(_reticleLengthUpDown, 1, 4);
+        layout.Controls.Add(CreateNumericSliderPanel(_reticleLengthUpDown, _reticleLengthSlider), 1, 4);
 
         layout.Controls.Add(new Label
         {
@@ -390,7 +431,7 @@ public sealed class SettingsForm : Form
             Anchor = AnchorStyles.Left,
             Text = "Gap from center"
         }, 0, 5);
-        layout.Controls.Add(_reticleGapUpDown, 1, 5);
+        layout.Controls.Add(CreateNumericSliderPanel(_reticleGapUpDown, _reticleGapSlider), 1, 5);
 
         layout.Controls.Add(new Label
         {
@@ -398,7 +439,7 @@ public sealed class SettingsForm : Form
             Anchor = AnchorStyles.Left,
             Text = "Line thickness"
         }, 0, 6);
-        layout.Controls.Add(_reticleThicknessUpDown, 1, 6);
+        layout.Controls.Add(CreateNumericSliderPanel(_reticleThicknessUpDown, _reticleThicknessSlider), 1, 6);
 
         layout.Controls.Add(new Label
         {
@@ -406,7 +447,7 @@ public sealed class SettingsForm : Form
             Anchor = AnchorStyles.Left,
             Text = "Opacity"
         }, 0, 7);
-        layout.Controls.Add(_reticleOpacityUpDown, 1, 7);
+        layout.Controls.Add(CreateNumericSliderPanel(_reticleOpacityUpDown, _reticleOpacitySlider), 1, 7);
 
         layout.Controls.Add(_centerDotCheckBox, 0, 8);
         layout.SetColumnSpan(_centerDotCheckBox, 2);
@@ -417,11 +458,13 @@ public sealed class SettingsForm : Form
             Anchor = AnchorStyles.Left,
             Text = "Center dot size"
         }, 0, 9);
-        layout.Controls.Add(_centerDotSizeUpDown, 1, 9);
+        layout.Controls.Add(CreateNumericSliderPanel(_centerDotSizeUpDown, _centerDotSizeSlider), 1, 9);
 
         _pickColorButton.Click += (_, _) => PickColor();
         _pickOutlineColorButton.Click += (_, _) => PickOutlineColor();
-        _centerDotCheckBox.CheckedChanged += (_, _) => _centerDotSizeUpDown.Enabled = _centerDotCheckBox.Checked;
+        _colorPreviewPanel.Click += (_, _) => PickColor();
+        _outlineColorPreviewPanel.Click += (_, _) => PickOutlineColor();
+        _centerDotCheckBox.CheckedChanged += (_, _) => UpdateCenterDotSizeState();
 
         group.Controls.Add(layout);
         return group;
@@ -551,12 +594,13 @@ public sealed class SettingsForm : Form
         _reticleScaleUpDown.Value = settings.ReticleScale;
         _centerDotCheckBox.Checked = settings.ShowCenterDot;
         _centerDotSizeUpDown.Value = settings.CenterDotSize;
+        SyncAllSlidersFromNumericValues();
         _colorPreviewPanel.BackColor = _selectedColor;
         _outlineColorPreviewPanel.BackColor = _selectedOutlineColor;
 
         UpdateMonitorState();
         UpdateHoldModeState();
-        _centerDotSizeUpDown.Enabled = _centerDotCheckBox.Checked;
+        UpdateCenterDotSizeState();
     }
 
     private void UpdateMonitorState()
@@ -567,6 +611,12 @@ public sealed class SettingsForm : Form
     private void UpdateHoldModeState()
     {
         _holdToShowMouseButtonComboBox.Enabled = _holdToShowCheckBox.Checked;
+    }
+
+    private void UpdateCenterDotSizeState()
+    {
+        _centerDotSizeUpDown.Enabled = _centerDotCheckBox.Checked;
+        _centerDotSizeSlider.Enabled = _centerDotCheckBox.Checked;
     }
 
     private void PickColor()
@@ -601,13 +651,61 @@ public sealed class SettingsForm : Form
         _openSettingsHotkeyTextBox.HotkeyChanged += (_, _) => ApplyChanges();
         _holdToShowCheckBox.CheckedChanged += (_, _) => ApplyChanges();
         _holdToShowMouseButtonComboBox.SelectedIndexChanged += (_, _) => ApplyChanges();
-        _reticleLengthUpDown.ValueChanged += (_, _) => ApplyChanges();
-        _reticleGapUpDown.ValueChanged += (_, _) => ApplyChanges();
-        _reticleThicknessUpDown.ValueChanged += (_, _) => ApplyChanges();
-        _reticleOpacityUpDown.ValueChanged += (_, _) => ApplyChanges();
-        _reticleScaleUpDown.ValueChanged += (_, _) => ApplyChanges();
+        WireNumericSlider(_reticleLengthUpDown, _reticleLengthSlider, 1);
+        WireNumericSlider(_reticleGapUpDown, _reticleGapSlider, 1);
+        WireNumericSlider(_reticleThicknessUpDown, _reticleThicknessSlider, 1);
+        WireNumericSlider(_reticleOpacityUpDown, _reticleOpacitySlider, 1);
+        WireNumericSlider(_reticleScaleUpDown, _reticleScaleSlider, 10);
         _centerDotCheckBox.CheckedChanged += (_, _) => ApplyChanges();
-        _centerDotSizeUpDown.ValueChanged += (_, _) => ApplyChanges();
+        WireNumericSlider(_centerDotSizeUpDown, _centerDotSizeSlider, 1);
+    }
+
+    private void WireNumericSlider(NumericUpDown numeric, TrackBar slider, int sliderUnitsPerValue)
+    {
+        numeric.ValueChanged += (_, _) =>
+        {
+            if (_syncingNumericSliders)
+            {
+                return;
+            }
+
+            _syncingNumericSliders = true;
+            SetSliderValueClamped(numeric, slider, sliderUnitsPerValue);
+            _syncingNumericSliders = false;
+            ApplyChanges();
+        };
+
+        slider.ValueChanged += (_, _) =>
+        {
+            if (_syncingNumericSliders)
+            {
+                return;
+            }
+
+            _syncingNumericSliders = true;
+            numeric.Value = slider.Value / (decimal)sliderUnitsPerValue;
+            _syncingNumericSliders = false;
+            ApplyChanges();
+        };
+    }
+
+    private void SyncAllSlidersFromNumericValues()
+    {
+        SetSliderValueClamped(_reticleLengthUpDown, _reticleLengthSlider, 1);
+        SetSliderValueClamped(_reticleGapUpDown, _reticleGapSlider, 1);
+        SetSliderValueClamped(_reticleThicknessUpDown, _reticleThicknessSlider, 1);
+        SetSliderValueClamped(_reticleOpacityUpDown, _reticleOpacitySlider, 1);
+        SetSliderValueClamped(_reticleScaleUpDown, _reticleScaleSlider, 10);
+        SetSliderValueClamped(_centerDotSizeUpDown, _centerDotSizeSlider, 1);
+    }
+
+    private static void SetSliderValueClamped(
+        NumericUpDown numeric,
+        TrackBar slider,
+        int sliderUnitsPerValue)
+    {
+        var scaledValue = decimal.ToInt32(numeric.Value * sliderUnitsPerValue);
+        slider.Value = Math.Clamp(scaledValue, slider.Minimum, slider.Maximum);
     }
 
     private void ApplyChanges()
